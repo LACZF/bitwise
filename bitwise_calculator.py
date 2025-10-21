@@ -794,33 +794,26 @@ class BinaryCalculator:
                 char = expr[i]
                 if char.isspace():
                     i += 1
-                elif char.isdigit() or (char == '.' and scientific_mode):
-                    # 解析数字（在科学计算模式下支持小数）
+                elif char.isdigit() or (char.lower() in 'abcdef' and \
+                                      (i == 0 or expr[i-1] == 'x' or expr[i-1] == 'X')) or \
+                                      (char == '.' and scientific_mode):
+                    # 处理数字和十六进制前缀
                     start = i
-                    has_decimal = False
-                    has_exponent = False
-                    if char == '.' and scientific_mode:
-                        has_decimal = True
+                    is_hex = False
+                    # 检查是否是十六进制前缀
+                    if char == '0' and i + 1 < len(expr) and expr[i+1].lower() == 'x':
+                        is_hex = True
+                        i += 2  # 跳过0和x
+                    else:
                         i += 1
                     # 收集数字部分
                     while i < len(expr):
-                        if expr[i].isdigit() or expr[i] == '_':
+                        next_char = expr[i]
+                        if next_char.isdigit() or next_char == '_' or \
+                           (is_hex and next_char.lower() in 'abcdef'):
                             i += 1
-                        elif expr[i] == '.' and not has_decimal and scientific_mode:
-                            has_decimal = True
-                            i += 1
-                        elif (expr[i].lower() == 'e' and i+1 < len(expr) and
-                              (expr[i+1].isdigit() or expr[i+1] in ['+', '-'])) and not has_exponent:
-                            has_exponent = True
-                            i += 1
-                            # 处理指数部分的符号
-                            if i < len(expr) and expr[i] in ['+', '-']:
-                                i += 1
                         else:
                             break
-                    # 确保我们已经收集了完整的数字
-                    while i < len(expr) and expr[i].isdigit():
-                        i += 1
                     tokens.append(('NUMBER', expr[start:i]))
                 elif char == '0' and i + 1 < len(expr) and expr[i+1].lower() in ['x', 'b', 'd']:
                     # 处理以0x、0b或0d开头的数字
@@ -852,6 +845,16 @@ class BinaryCalculator:
                         tokens.append(('NUMBER', expr[i:i+2]))
                         i += 2
                     else:
+                        # 尝试处理可能的十六进制字符
+                        if char.lower() in 'abcdef':
+                            # 检查是否是十六进制数字（前面可以是数字、x/X、运算符或表达式开头）
+                            if i == 0 or expr[i-1] in '0123456789xX+-*/&|^()':
+                                start = i
+                                i += 1
+                                while i < len(expr) and (expr[i].isdigit() or expr[i].lower() in 'abcdef' or expr[i] == '_'):
+                                    i += 1
+                                tokens.append(('NUMBER', expr[start:i]))
+                                continue
                         raise ValueError(f"Invalid character in expression: {char}")
             return tokens
 
