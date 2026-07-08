@@ -992,8 +992,10 @@ class BinaryCalculator:
             if result is None:
                 return
 
-            # 如果结果是浮点数，不进行位运算和截断
-            if isinstance(result, float):
+            # 科学计算模式下不截断，保留完整精度
+            if self.scientific_mode_var.get():
+                pass
+            elif isinstance(result, float):
                 pass  # 保留浮点数原样
             else:
                 # 根据位大小截断结果
