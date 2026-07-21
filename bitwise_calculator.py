@@ -111,7 +111,12 @@ class BinaryCalculator:
                 if aligned_bit_size > self.bit_size_var.get():
                     self.bit_size_var.set(aligned_bit_size)
         except ValueError:
-            pass  # 不是有效的数字，不做处理
+            # 尝试解析为浮点数，如果是浮点数则跳过位宽自动检测
+            try:
+                float(processed_value)
+                return  # 浮点数不做位宽自动检测
+            except ValueError:
+                pass  # 不是有效的数字，不做处理
 
         # 如果检测到的进制与当前设置不同，更新进制
         if detected_base != self.base_var.get():
@@ -442,7 +447,14 @@ class BinaryCalculator:
                 return 0
 
             base = self.base_var.get()
-            value = int(value_str, base)
+            try:
+                value = int(value_str, base)
+            except ValueError:
+                # 尝试作为浮点数解析（仅限十进制输入时）
+                try:
+                    value = float(value_str)
+                except ValueError:
+                    return 0
 
             # 根据位大小进行截断
             bit_size = self.bit_size_var.get()
@@ -501,17 +513,20 @@ class BinaryCalculator:
         """更新所有显示"""
         value = self.get_current_value()
 
+        # 对于浮点数，使用整数部分进行进制转换显示
+        int_value = int(value) if isinstance(value, float) else value
+
         # 更新进制显示
         # 二进制值显示
         self.binary_value.config(state='normal')
         self.binary_value.delete(0, tk.END)
-        self.binary_value.insert(0, f"{bin(value)[2:]}")
+        self.binary_value.insert(0, f"{bin(int_value)[2:]}")
         self.binary_value.config(state='readonly')
 
         # 八进制值显示
         self.octal_value.config(state='normal')
         self.octal_value.delete(0, tk.END)
-        self.octal_value.insert(0, f"{oct(value)[2:]}")
+        self.octal_value.insert(0, f"{oct(int_value)[2:]}")
         self.octal_value.config(state='readonly')
 
         # 十进制值显示
@@ -523,11 +538,11 @@ class BinaryCalculator:
         # 十六进制值显示
         self.hex_value.config(state='normal')
         self.hex_value.delete(0, tk.END)
-        self.hex_value.insert(0, f"{hex(value)[2:].upper()}")
+        self.hex_value.insert(0, f"{hex(int_value)[2:].upper()}")
         self.hex_value.config(state='readonly')
 
         # 更新位显示
-        self.update_bit_display(value)
+        self.update_bit_display(int_value)
 
         # 更新位选择结果
         self.update_selection_display()
@@ -535,6 +550,9 @@ class BinaryCalculator:
     def update_bit_display(self, value):
         """更新位可视化显示"""
         self.bit_canvas.delete("all")
+
+        if isinstance(value, float):
+            value = int(value)
 
         bit_size = self.bit_size_var.get()
         bits = format(value, f'0{bit_size}b')
@@ -796,7 +814,7 @@ class BinaryCalculator:
                     i += 1
                 elif char.isdigit() or (char.lower() in 'abcdef' and \
                                       (i == 0 or expr[i-1] == 'x' or expr[i-1] == 'X')) or \
-                                      (char == '.' and scientific_mode):
+                                      char == '.':
                     # 处理数字和十六进制前缀
                     start = i
                     is_hex = False
@@ -810,7 +828,8 @@ class BinaryCalculator:
                     while i < len(expr):
                         next_char = expr[i]
                         if next_char.isdigit() or next_char == '_' or \
-                           (is_hex and next_char.lower() in 'abcdef'):
+                           (is_hex and next_char.lower() in 'abcdef') or \
+                           (not is_hex and next_char == '.'):
                             i += 1
                         else:
                             break
