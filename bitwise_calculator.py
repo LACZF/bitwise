@@ -1,5 +1,6 @@
 import os
 import tkinter as tk
+import tkinter.font as tkfont
 from tkinter import ttk, messagebox
 
 class BinaryCalculator:
@@ -17,7 +18,14 @@ class BinaryCalculator:
         self.always_on_top_var = tk.BooleanVar(value=False)
         self.auto_detect_bits_var = tk.BooleanVar(value=True)
         self.scientific_mode_var = tk.BooleanVar(value=False)  # 科学计算模式变量
+        self.bit_display_size_var = tk.IntVar(value=25)  # 位显示单元格大小
+        self.auto_bit_display_size_var = tk.BooleanVar(value=True)  # 自动调整位显示大小
+        self.font_size_var = tk.IntVar(value=10)  # 全局字体大小
         self.pre_endian_var = self.little_endian_var.get()
+
+        # 全局字体对象，所有widget共享，修改即可全局生效
+        self.ui_font = tkfont.Font(family="Courier", size=self.font_size_var.get())
+        self.ui_font_bold = tkfont.Font(family="Courier", size=self.font_size_var.get(), weight="bold")
 
         # 位选择相关变量
         self.selected_bits = set()
@@ -146,6 +154,42 @@ class BinaryCalculator:
             self.bit_size_var.set(int(selected_value))
             self.update_displays()
 
+    def on_bit_display_size_change(self):
+        """位显示大小改变时的回调"""
+        self.update_displays()
+
+    def on_font_size_change(self):
+        """字体大小改变时的回调，修改共享Font对象即可全局生效"""
+        font_size = self.font_size_var.get()
+        self.ui_font.configure(size=font_size)
+        self.ui_font_bold.configure(size=font_size)
+
+    def on_auto_bit_display_size_toggle(self):
+        """自适应位显示大小开关切换"""
+        if self.auto_bit_display_size_var.get():
+            self._auto_fit_bit_display_size()
+
+    def on_canvas_resize(self, event):
+        """画布大小变化时，自适应调整位显示单元格大小"""
+        if self.auto_bit_display_size_var.get():
+            self._auto_fit_bit_display_size()
+
+    def _auto_fit_bit_display_size(self):
+        """根据画布可用宽度和位大小，计算最优单元格尺寸"""
+        canvas_width = self.bit_canvas.winfo_width()
+        if canvas_width <= 1:
+            return
+        bit_size = self.bit_size_var.get()
+        bits_per_row = 32
+        padding = 20
+        # 每行 bits_per_row 个格子，留出边距
+        max_cell = (canvas_width - padding) / bits_per_row
+        # 限制在合理范围
+        cell = max(10, min(60, int(max_cell)))
+        if cell != self.bit_display_size_var.get():
+            self.bit_display_size_var.set(cell)
+            self.update_displays()
+
     def calculate_on_enter(self, event):
         self.current_value_set(self.history_combo.get())
         self.calculate_and_update(add_to_history=True)
@@ -162,7 +206,7 @@ class BinaryCalculator:
 
         history_frame = ttk.LabelFrame(main_frame, text="数值输入", padding="10")
         history_frame.pack(fill=tk.X, pady=1)
-        self.history_combo = ttk.Combobox(history_frame)
+        self.history_combo = ttk.Combobox(history_frame, font=self.ui_font)
         self.history_combo.pack(fill=tk.X)
         self.update_history()
         self.history_combo.bind('<<ComboboxSelected>>', self.on_history_select)
@@ -176,12 +220,12 @@ class BinaryCalculator:
 
         # 数值输入
         input_span = 6
-        ttk.Label(input_frame, text="结果:").grid(row=0, column=0, sticky=tk.W, padx=2, pady=1)
-        self.entry = ttk.Entry(input_frame, textvariable=self.current_value, font=('Courier', 12))
+        ttk.Label(input_frame, text="结果:", font=self.ui_font).grid(row=0, column=0, sticky=tk.W, padx=2, pady=1)
+        self.entry = ttk.Entry(input_frame, textvariable=self.current_value, font=self.ui_font)
         self.entry.grid(row=0, column=1, columnspan=input_span, sticky=tk.EW, padx=2, pady=1)
 
-        ttk.Label(input_frame, text="移位:").grid(row=0, column=input_span+1, padx=2, sticky=tk.W)
-        shift_spinbox = ttk.Spinbox(input_frame, from_=1, to=1024, width=5, textvariable=self.shift_amount_var)
+        ttk.Label(input_frame, text="移位:", font=self.ui_font).grid(row=0, column=input_span+1, padx=2, sticky=tk.W)
+        shift_spinbox = ttk.Spinbox(input_frame, from_=1, to=1024, width=5, textvariable=self.shift_amount_var, font=self.ui_font)
         shift_spinbox.grid(row=0, column=input_span+2, padx=2, sticky=tk.W)
         ttk.Button(input_frame, text="<<", command=lambda: self.shift("left")).grid(row=0, column=input_span+3, padx=2, sticky=tk.W)
         ttk.Button(input_frame, text=">>", command=lambda: self.shift("right")).grid(row=0, column=input_span+4, padx=2, sticky=tk.W)
@@ -193,7 +237,7 @@ class BinaryCalculator:
         self.entry.bind('<Return>', self.calculate_on_enter)
 
         # 进制选择
-        ttk.Label(input_frame, text="输入进制:").grid(row=1, column=0, sticky=tk.W, padx=2, pady=1)
+        ttk.Label(input_frame, text="输入进制:", font=self.ui_font).grid(row=1, column=0, sticky=tk.W, padx=2, pady=1)
         ttk.Radiobutton(input_frame, text="2进制", variable=self.base_var, value=2,
                        command=self.update_displays).grid(row=1, column=1, padx=2, pady=1, sticky=tk.W)
         ttk.Radiobutton(input_frame, text="8进制", variable=self.base_var, value=8,
@@ -204,10 +248,10 @@ class BinaryCalculator:
                        command=self.update_displays).grid(row=1, column=4, padx=2, pady=1, sticky=tk.W)
 
         # 位大小选择
-        ttk.Label(input_frame, text="位大小:").grid(row=1, column=5, sticky=tk.W, padx=2, pady=1)
+        ttk.Label(input_frame, text="位大小:", font=self.ui_font).grid(row=1, column=5, sticky=tk.W, padx=2, pady=1)
         # 使用下拉选择框替代单选按钮
         bit_sizes = [8, 16, 32, 64, 128, 256, 512, 1024]
-        self.bit_size_combo = ttk.Combobox(input_frame, textvariable=self.bit_size_var, values=bit_sizes, width=5)
+        self.bit_size_combo = ttk.Combobox(input_frame, textvariable=self.bit_size_var, values=bit_sizes, width=5, font=self.ui_font)
         self.bit_size_combo.grid(row=1, column=6, padx=2, pady=1, sticky=tk.W)
         self.bit_size_combo.bind("<<ComboboxSelected>>", self.on_bit_size_event)
         self.bit_size_combo.bind('<KeyRelease>', self.on_bit_size_event)
@@ -235,32 +279,55 @@ class BinaryCalculator:
         result_frame.grid(row=0, column=0, sticky=tk.NSEW, padx=(0, 5))
 
         # 二进制显示：左侧为标签显示描述，右侧为文本框显示数值
-        ttk.Label(result_frame, text="二进制: ", font=("Courier", 10)).grid(row=0, column=0, sticky=tk.W, padx=2, pady=1)
-        self.binary_value = ttk.Entry(result_frame, font=("Courier", 10), width=25)
+        ttk.Label(result_frame, text="二进制: ", font=self.ui_font).grid(row=0, column=0, sticky=tk.W, padx=2, pady=1)
+        self.binary_value = ttk.Entry(result_frame, font=self.ui_font, width=25)
         self.binary_value.grid(row=0, column=1, sticky=tk.W, padx=2, pady=1)
         self.binary_value.config(state='readonly')
 
         # 八进制显示：左侧为标签显示描述，右侧为文本框显示数值
-        ttk.Label(result_frame, text="八进制: ", font=("Courier", 10)).grid(row=1, column=0, sticky=tk.W, padx=2, pady=1)
-        self.octal_value = ttk.Entry(result_frame, font=(("Courier", 10)), width=25)
+        ttk.Label(result_frame, text="八进制: ", font=self.ui_font).grid(row=1, column=0, sticky=tk.W, padx=2, pady=1)
+        self.octal_value = ttk.Entry(result_frame, font=self.ui_font, width=25)
         self.octal_value.grid(row=1, column=1, sticky=tk.W, padx=2, pady=1)
         self.octal_value.config(state='readonly')
 
         # 十进制显示：左侧为标签显示描述，右侧为文本框显示数值
-        ttk.Label(result_frame, text="十进制: ", font=("Courier", 10)).grid(row=2, column=0, sticky=tk.W, padx=2, pady=1)
-        self.decimal_value = ttk.Entry(result_frame, font=(("Courier", 10)), width=25)
+        ttk.Label(result_frame, text="十进制: ", font=self.ui_font).grid(row=2, column=0, sticky=tk.W, padx=2, pady=1)
+        self.decimal_value = ttk.Entry(result_frame, font=self.ui_font, width=25)
         self.decimal_value.grid(row=2, column=1, sticky=tk.W, padx=2, pady=1)
         self.decimal_value.config(state='readonly')
 
         # 十六进制显示：左侧为标签显示描述，右侧为文本框显示数值
-        ttk.Label(result_frame, text="十六进制: ", font=("Courier", 10)).grid(row=3, column=0, sticky=tk.W, padx=2, pady=1)
-        self.hex_value = ttk.Entry(result_frame, font=(("Courier", 10)), width=25)
+        ttk.Label(result_frame, text="十六进制: ", font=self.ui_font).grid(row=3, column=0, sticky=tk.W, padx=2, pady=1)
+        self.hex_value = ttk.Entry(result_frame, font=self.ui_font, width=25)
         self.hex_value.grid(row=3, column=1, sticky=tk.W, padx=2, pady=1)
         self.hex_value.config(state='readonly')
 
         # 位显示区域
         bit_frame = ttk.LabelFrame(main_frame, text="位显示", padding="10")
         bit_frame.pack(fill=tk.BOTH, expand=True, pady=1)
+
+        # 位显示大小控制
+        bit_size_control_frame = ttk.Frame(bit_frame)
+        bit_size_control_frame.pack(fill=tk.X, pady=(0, 5))
+        ttk.Label(bit_size_control_frame, text="显示大小:", font=self.ui_font).pack(side=tk.LEFT, padx=(0, 5))
+        bit_display_spinbox = ttk.Spinbox(bit_size_control_frame, from_=10, to=60, width=5,
+                                          textvariable=self.bit_display_size_var,
+                                          command=self.on_bit_display_size_change, font=self.ui_font)
+        bit_display_spinbox.pack(side=tk.LEFT, padx=(0, 15))
+        bit_display_spinbox.bind('<Return>', lambda e: self.on_bit_display_size_change())
+        ttk.Label(bit_size_control_frame, text="像素", font=self.ui_font).pack(side=tk.LEFT, padx=(0, 15))
+
+        # 字体大小控制
+        ttk.Label(bit_size_control_frame, text="字体大小:", font=self.ui_font).pack(side=tk.LEFT, padx=(0, 5))
+        font_size_spinbox = ttk.Spinbox(bit_size_control_frame, from_=8, to=24, width=3,
+                                        textvariable=self.font_size_var,
+                                        command=self.on_font_size_change, font=self.ui_font)
+        font_size_spinbox.pack(side=tk.LEFT, padx=(0, 5))
+        font_size_spinbox.bind('<Return>', lambda e: self.on_font_size_change())
+
+        # 自动调整大小选项
+        ttk.Checkbutton(bit_size_control_frame, text="自适应", variable=self.auto_bit_display_size_var,
+                       command=self.on_auto_bit_display_size_toggle).pack(side=tk.LEFT, padx=(10, 0))
 
         # 创建滚动条和画布容器
         bit_container = ttk.Frame(bit_frame)
@@ -289,6 +356,8 @@ class BinaryCalculator:
         self.bit_canvas.bind("<ButtonRelease-1>", self.on_bit_release)
         # 添加双击事件，双击时改变位的值
         self.bit_canvas.bind("<Double-1>", self.on_bit_double_click)
+        # 绑定画布大小变化事件，用于自适应位显示大小
+        self.bit_canvas.bind("<Configure>", self.on_canvas_resize)
 
         # 位选择结果显示区域
         self.selection_frame = ttk.LabelFrame(display_container, text="位选择结果：未选择任何位", padding="10")
@@ -298,26 +367,26 @@ class BinaryCalculator:
 
         # 位选择结果进制显示
         # 二进制显示：左侧为标签显示描述，右侧为文本框显示数值
-        ttk.Label(self.selection_frame, text="二进制: ", font=("Courier", 10)).grid(row=1, column=0, sticky=tk.W, padx=2, pady=1)
-        self.selected_binary_value = ttk.Entry(self.selection_frame, font=("Courier", 10), width=25)
+        ttk.Label(self.selection_frame, text="二进制: ", font=self.ui_font).grid(row=1, column=0, sticky=tk.W, padx=2, pady=1)
+        self.selected_binary_value = ttk.Entry(self.selection_frame, font=self.ui_font, width=25)
         self.selected_binary_value.grid(row=1, column=1, sticky=tk.W, padx=2, pady=1)
         self.selected_binary_value.config(state='readonly')
 
         # 八进制显示：左侧为标签显示描述，右侧为文本框显示数值
-        ttk.Label(self.selection_frame, text="八进制: ", font=("Courier", 10)).grid(row=2, column=0, sticky=tk.W, padx=2, pady=1)
-        self.selected_octal_value = ttk.Entry(self.selection_frame, font=("Courier", 10), width=25)
+        ttk.Label(self.selection_frame, text="八进制: ", font=self.ui_font).grid(row=2, column=0, sticky=tk.W, padx=2, pady=1)
+        self.selected_octal_value = ttk.Entry(self.selection_frame, font=self.ui_font, width=25)
         self.selected_octal_value.grid(row=2, column=1, sticky=tk.W, padx=2, pady=1)
         self.selected_octal_value.config(state='readonly')
 
         # 十进制显示：左侧为标签显示描述，右侧为文本框显示数值
-        ttk.Label(self.selection_frame, text="十进制: ", font=("Courier", 10)).grid(row=3, column=0, sticky=tk.W, padx=2, pady=1)
-        self.selected_decimal_value = ttk.Entry(self.selection_frame, font=("Courier", 10), width=25)
+        ttk.Label(self.selection_frame, text="十进制: ", font=self.ui_font).grid(row=3, column=0, sticky=tk.W, padx=2, pady=1)
+        self.selected_decimal_value = ttk.Entry(self.selection_frame, font=self.ui_font, width=25)
         self.selected_decimal_value.grid(row=3, column=1, sticky=tk.W, padx=2, pady=1)
         self.selected_decimal_value.config(state='readonly')
 
         # 十六进制显示：左侧为标签显示描述，右侧为文本框显示数值
-        ttk.Label(self.selection_frame, text="十六进制: ", font=("Courier", 10)).grid(row=4, column=0, sticky=tk.W, padx=2, pady=1)
-        self.selected_hex_value = ttk.Entry(self.selection_frame, font=("Courier", 10), width=25)
+        ttk.Label(self.selection_frame, text="十六进制: ", font=self.ui_font).grid(row=4, column=0, sticky=tk.W, padx=2, pady=1)
+        self.selected_hex_value = ttk.Entry(self.selection_frame, font=self.ui_font, width=25)
         self.selected_hex_value.grid(row=4, column=1, sticky=tk.W, padx=2, pady=1)
         self.selected_hex_value.config(state='readonly')
 
@@ -561,9 +630,9 @@ class BinaryCalculator:
         rows = 1 if bit_size <= 32 else 2
         bits_per_row = 32
 
-        # 增大单元格宽度和高度，使位显示更清晰
-        cell_width = 25  # 从20增加到25
-        cell_height = 25  # 从20增加到25
+        # 使用可调的单元格宽度和高度
+        cell_width = self.bit_display_size_var.get()
+        cell_height = self.bit_display_size_var.get()
         start_x = 10
         start_y = 10
 
@@ -605,15 +674,15 @@ class BinaryCalculator:
                 # 存储矩形信息用于点击检测
                 self.bit_rects[rect_id] = bit_index
 
-                # 绘制位值
-                font_size = 8 if cell_width < 15 else 10
+                # 绘制位值，字体大小根据单元格大小自适应
+                font_size = max(6, min(14, cell_width // 3))
                 self.bit_canvas.create_text(x + cell_width/2, y + cell_height/2,
                                           text=bit, font=("Arial", font_size, "bold"))
 
                 # 每隔4位显示一次位索引，避免过于拥挤
-                if bit_index % 1 == 0:
-                    self.bit_canvas.create_text(x + cell_width/2, y + cell_height + 8,
-                                              text=str(bit_index), font=("Arial", 6))
+                index_font_size = max(5, min(8, cell_width // 4))
+                self.bit_canvas.create_text(x + cell_width/2, y + cell_height + 8,
+                                          text=str(bit_index), font=("Arial", index_font_size))
 
     def on_bit_double_click(self, event):
         """处理位双击事件，双击时改变位的值"""
