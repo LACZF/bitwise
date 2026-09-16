@@ -431,6 +431,7 @@ class BinaryCalculator:
 
         # 获取当前值
         value = self.get_current_value()
+        value = int(value) if isinstance(value, float) else value
         bit_size = self.bit_size_var.get()
 
         # 如果位大小是8位，不需要端序转换
@@ -529,7 +530,8 @@ class BinaryCalculator:
             bit_size = self.bit_size_var.get()
             max_value = (1 << bit_size) - 1
             if value > max_value:
-                value = value & max_value
+                # 浮点数需要先转换为整数再截断，否则位运算会出错
+                value = int(value) & max_value
                 self.current_value_set(self.format_number(value, base))
 
             return value
@@ -769,6 +771,7 @@ class BinaryCalculator:
     def toggle_bit(self, bit_index):
         """切换指定位的值"""
         value = self.get_current_value()
+        value = int(value) if isinstance(value, float) else value
         mask = 1 << bit_index
         new_value = value ^ mask  # 使用异或操作切换位
 
@@ -804,6 +807,8 @@ class BinaryCalculator:
 
         for bit_count, bit_index in enumerate(sorted_bits):
             current_value = self.get_current_value()
+            if isinstance(current_value, float):
+                current_value = int(current_value)
             if (current_value >> bit_index) & 1:
                 selected_value |= (1 << bit_count)
 
@@ -851,6 +856,7 @@ class BinaryCalculator:
             return
 
         value = self.get_current_value()
+        value = int(value) if isinstance(value, float) else value
 
         for bit_index in self.selected_bits:
             mask = 1 << bit_index
@@ -891,6 +897,8 @@ class BinaryCalculator:
                     if char == '0' and i + 1 < len(expr) and expr[i+1].lower() == 'x':
                         is_hex = True
                         i += 2  # 跳过0和x
+                    elif char == '0' and i + 1 < len(expr) and expr[i+1].lower() == 'd':
+                        i += 2  # 0d前缀表示十进制，跳过0和d
                     else:
                         i += 1
                     # 收集数字部分
@@ -900,6 +908,15 @@ class BinaryCalculator:
                            (is_hex and next_char.lower() in 'abcdef') or \
                            (not is_hex and next_char == '.'):
                             i += 1
+                        elif not is_hex and next_char.lower() == 'e':
+                            # 科学记数法，如 1e3、1.5e-2、2E+10
+                            j = i + 1
+                            if j < len(expr) and expr[j] in '+-':
+                                j += 1
+                            if j < len(expr) and (expr[j].isdigit() or expr[j] == '_'):
+                                i = j + 1
+                            else:
+                                break
                         else:
                             break
                     tokens.append(('NUMBER', expr[start:i]))
@@ -979,6 +996,12 @@ class BinaryCalculator:
                 return left
 
             def parse_factor():  # 处理位运算和括号
+                # 一元运算符：支持 -0.5、+5、-(...) 等负数/负表达式
+                if i[0] < len(tokens) and tokens[i[0]][1] in ['+', '-']:
+                    op = tokens[i[0]][1]
+                    i[0] += 1
+                    operand = parse_factor()
+                    return -operand if op == '-' else operand
                 left = parse_atom()
                 while i[0] < len(tokens) and tokens[i[0]][1] in ['&', '|', '^', '<<', '>>']:
                     op = tokens[i[0]][1]
@@ -1027,11 +1050,14 @@ class BinaryCalculator:
                             return 0
                     elif num_str.startswith('0d'):
                         try:
-                            # 0d前缀表示十进制
+                            # 0d前缀表示十进制，先尝试整数，再尝试浮点数（含科学记数法）
                             return int(num_str[2:].replace('_', ''))
                         except ValueError:
-                            # 如果无法解析为十进制，则作为十进制0处理
-                            return 0
+                            try:
+                                return float(num_str[2:].replace('_', ''))
+                            except ValueError:
+                                # 如果无法解析为十进制，则作为十进制0处理
+                                return 0
                     else:
                         # 尝试转换为十进制（包括科学记数法）
                         try:
@@ -1111,6 +1137,7 @@ class BinaryCalculator:
     def shift(self, direction):
         """执行移位操作"""
         value = self.get_current_value()
+        value = int(value) if isinstance(value, float) else value
         amount = self.shift_amount_var.get()
 
         if direction == "left":
@@ -1134,6 +1161,7 @@ class BinaryCalculator:
     def bitwise_not(self):
         """按位取反操作"""
         value = self.get_current_value()
+        value = int(value) if isinstance(value, float) else value
         bit_size = self.bit_size_var.get()
 
         # 按位取反并根据位大小截断
