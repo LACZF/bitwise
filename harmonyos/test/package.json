@@ -1,0 +1,13 @@
+{
+  "name": "bitwise-core-tests",
+  "version": "1.0.0",
+  "description": "本地测试脚手架：直接编译运行鸿蒙版计算核心 BitwiseCore.ets（无需 DevEco Studio / 真机）",
+  "main": "out/test.js",
+  "scripts": {
+    "test": "tsc -p tsconfig.json && node out/test.js"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}

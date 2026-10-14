@@ -1,0 +1,16 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "位计算器入口模块"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "程序员位运算/进制转换计算器"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "Bitwise"
+    }
+  ]
+}

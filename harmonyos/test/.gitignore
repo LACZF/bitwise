@@ -1,0 +1,4 @@
+node_modules/
+out/
+src/BitwiseCore.ts
+package-lock.json

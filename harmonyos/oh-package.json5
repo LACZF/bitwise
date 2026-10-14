@@ -1,0 +1,13 @@
+{
+  "name": "bitwise",
+  "version": "1.0.0",
+  "description": "A bitwise calculator for HarmonyOS (port of the Python/tkinter bitwise_calculator)",
+  "main": "",
+  "author": "",
+  "license": "MIT",
+  "modelVersion": "5.0.0",
+  "dependencies": {},
+  "devDependencies": {
+    "@ohos/hypium": "1.0.6"
+  }
+}
